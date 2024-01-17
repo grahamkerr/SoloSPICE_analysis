@@ -444,9 +444,11 @@ def uncertaintyL2(ras_window, verbose = False):
                         of a sunraster object, keeping all the WCS info together.
 
                         The input array assumes data in W/m^2/sr/nm, and the output
-                        errors are in those same units. However, note that the 
-                        units field of the uncertainty object is, by requirement, the
-                        same as the sunraster SPICE L2 object, which is ADU.
+                        errors are in those same units, which is what is required by 
+                        the sospice error calculation. The .unit field of the 
+                        uncertainty object will use whatever units the input 
+                        sunraster objects have... but these are not checked by sospice
+                        so be careful!
 
     INPUTS:             ras_window -- A sunraster SPICE object that is 'window-ed', 
                                       which is that the specific window extracted
