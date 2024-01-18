@@ -84,7 +84,7 @@ def grab_wavel(raster, winid=None, verbose = True, nounit = False):
     NAME:               grab_wavel
 
     PURPOSE:            To extract the wavelength values from a SPICE L2
-                        observion.
+                        observation.
 
     INPUTS:             raster -- A sunraster SPICE object
                         winid -- A string noting which wavelength window 
@@ -94,7 +94,7 @@ def grab_wavel(raster, winid=None, verbose = True, nounit = False):
     INPUTS:             verbose -- Prints the windows to screen
                         nounits -- Removes the astropy units
 
-    OUTPUTS:            The cell-centered wavelengths, in angstroms. 
+    OUTPUTS:            The cell-centered wavelengths, in nm. 
 
     NOTES:              By default, the output is a list with a defined
                         astropy unit
@@ -106,11 +106,11 @@ def grab_wavel(raster, winid=None, verbose = True, nounit = False):
         print('No window ID set, using',keys[0])
     window = raster[winid]
     if verbose == True:
-        print((window.axis_world_coords_values('em.wl')[0]).to(u.angstrom))
+        print((window.axis_world_coords_values('em.wl')[0]).to(u.nanometer))
     if nounit == True:
-        return (window.axis_world_coords_values('em.wl')[0]).to(u.angstrom).value
+        return (window.axis_world_coords_values('em.wl')[0]).to(u.nanometer).value
     else:
-        return (window.axis_world_coords_values('em.wl')[0]).to(u.angstrom)
+        return (window.axis_world_coords_values('em.wl')[0]).to(u.nanometer)
 
 ####################################################################
 ####################################################################
@@ -179,7 +179,7 @@ def wavel2pix(ras_window, wavels, frame=None, Tx=0, Ty=0,
                                       That is, time has been sliced out.
                                       e.g ndslice = window[0,:,:,:]
                         wavels -- float, or list of floats, representing 
-                                  requested wavelengths in angstrom
+                                  requested wavelengths in nm
                         
     OPTIONAL            Tx, Ty -- the longitude and latitude in arcsec
     INPUTS:             verbose -- Print some steps
@@ -210,7 +210,7 @@ def wavel2pix(ras_window, wavels, frame=None, Tx=0, Ty=0,
     pix = ras_window.wcs.world_to_pixel(SkyCoord(Tx=Tx*u.arcsec, 
                                                 Ty=Ty*u.arcsec, 
                                                 frame=frame),
-                          wavels*u.angstrom)
+                          wavels*u.nanometer)
 
     if outputall == True:
         if verbose==True:
@@ -254,10 +254,10 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
                         
     OPTIONAL            
     INPUTS:             wavels -- float, or list of floats
-                                  Wavelengths of the observing window in angstrom. 
+                                  Wavelengths of the observing window in nm. 
                                   Default is wavels = None, and they are 
                                   read from the ras_slice object.
-                        w1, w2 -- The wavelengths to integrate over, in angstrom.
+                        w1, w2 -- The wavelengths to integrate over, in nm.
                                   Default is that w1 = w2 = None, and the range 
                                   is taken to be the start and end of the wavels
                                   array.
@@ -268,6 +268,13 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
                                      units, or DN, are used then set to True and
                                      manually deal with pixel scale outside the 
                                      function.
+                        nounitchange -- book, default = False
+                                        If false then the ndslice_wrange_integ.unit 
+                                        are converted due to the integration, with 
+                                        the assumption being that units are 
+                                        W/m^2/sr. 
+                                        If alternate units are required, this can be
+                                        changed after-the-fact
                         
     OUTPUTS:            An NDCUBE object containing the integrated intensities of the 
                         data. The WCS coords of that object match the input, and
@@ -286,7 +293,7 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
 
     ## The wavelength axis
     if len(wavels) == 0:
-        wavels = (ras_window.axis_world_coords_values('em.wl')[0]).to(u.angstrom).value
+        wavels = (ras_window.axis_world_coords_values('em.wl')[0]).to(u.nanometer).value
 
 
     ## If required, set the wavelength integration limits
@@ -314,6 +321,10 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
     ## Multiply by the pixel spacing
     if noconvert == False:
         ndslice_wrange_integ*=ndslice.meta['CDELT3']
+        nounitchange = True
+
+    if nounitchange == False:
+        ndslice_wrange_integ*=(1*u.nanometer)
 
     return ndslice_wrange_integ
     
@@ -321,7 +332,7 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
 ####################################################################
     
 def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
-                     noconvert=False): 
+                     noconvert=False, nounitchange = False): 
     '''
     Graham Kerr
     NASA/GSFC & CUA
@@ -354,10 +365,10 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
                                                
     OPTIONAL            
     INPUTS:             wavels -- float, or list of floats
-                                  Wavelengths of the observing window in angstrom. 
+                                  Wavelengths of the observing window in nm. 
                                   Default is wavels = None, and they are 
                                   read from the ras_slice object.
-                        w1, w2 -- The wavelengths to integrate over, in angstrom.
+                        w1, w2 -- The wavelengths to integrate over, in nm.
                                   Default is that w1 = w2 = None, and the range 
                                   is taken to be the start and end of the wavels
                                   array.
@@ -368,6 +379,13 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
                                      units, or DN, are used then set to True and
                                      manually deal with pixel scale outside the 
                                      function.
+                        nounitchange -- book, default = False
+                                        If false then the ndslice_wrange_integ.unit 
+                                        are converted due to the integration, with 
+                                        the assumption being that units are 
+                                        W/m^2/sr. 
+                                        If alternate units are required, this can be
+                                        changed after-the-fact
                         
     OUTPUTS:            An NDCUBE object containing the integrated intensities of the 
                         data. The WCS coords of that object match the input, and
@@ -387,8 +405,7 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
     '''
     ## The wavelength axis
     if len(wavels) == 0:
-        wavels = (ras_window.axis_world_coords_values('em.wl')[0]).to(u.angstrom).value
-
+        wavels = (ras_window.axis_world_coords_values('em.wl')[0]).to(u.nanometer).value
 
     ## If required, set the wavelength integration limits
     if w1 == None:
@@ -396,6 +413,7 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
         print(w1)
     if w2 == None:
         w2 = wavels[-1].value
+
 
     ## Extract a slice so that we can grab wavelength ranges in pixels
     ind = 0
@@ -417,11 +435,15 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
     data_tmp = ndslice_wrange.data
     ## Integrate over wavelength... assumes intensity in W/m^2/nm!
     if noconvert == False:
-        data_tmp_integ = np.trapz(data_tmp, x = wavels[wind1:wind2+1]/10, axis = 0)
+        data_tmp_integ = np.trapz(data_tmp, x = wavels[wind1:wind2+1], axis = 0)
     else:
         data_tmp_integ = np.trapz(data_tmp, axis = 0)
 
     ndslice_wrange_integ.data[0,:,:] = data_tmp_integ
+
+    if nounitchange == False:
+        ndslice_wrange_integ*=(1*u.nanometer)
+
 
     return ndslice_wrange_integ
 
