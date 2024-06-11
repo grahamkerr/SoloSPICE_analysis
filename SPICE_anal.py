@@ -19,6 +19,9 @@
 ## can be useful for specifics whereas those libraries/tools can be 
 ## more general.
 ##
+## .... note that the error propegation needs work and is just me 
+## playing around. It is NOT ready for use. 
+##
 ####################################################################
 ####################################################################
 
@@ -617,7 +620,8 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
 ####################################################################
 
 def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
-                           noconvert=False, nounitchange = False): 
+                           noconvert=False, nounitchange = False,
+                           uncertainties = False): 
     '''
     Graham Kerr
     NASA/GSFC & CUA
@@ -673,6 +677,9 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
                                         W/m^2/sr. 
                                         If alternate units are required, this can be
                                         changed after-the-fact
+                        uncertainties -- bool, default = False
+                                         If True then the errors are propegated through 
+                                         the wavelength integration 
                         
     OUTPUTS:            An NDCUBE object containing the integrated intensities of the 
                         data. The WCS coords of that object match the input, and
@@ -687,6 +694,8 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
                         np.trapz, and instead multiply the result by the pixel 
                         spacing... that doesn't quite give the same result but 
                         it's pretty darn close. 
+
+                        *** SHOULD DOUBLE CHECK THE ERROR PROP ***
 
                         
     '''
@@ -731,6 +740,21 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
     if nounitchange == False:
         ndslice_wrange_integ*=(1*u.nanometer)
 
+
+    if uncertainties == True:
+        dw = (wavels[1]-wavels[0]).value
+        print('dw = ',dw)
+        uncs2_sum = np.zeros_like(ndslice_wrange_integ.data)
+        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array/ndslice_wrange.data),axis=1))
+        uncs = spiceL2_Unc(uncs2_sum*ndslice_wrange_integ.data, 
+                            unit=ndslice_wrange_integ.unit, 
+                            copy=True)
+        # uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array*dw),axis=1))
+        # uncs = spiceL2_Unc(uncs2_sum, 
+        #                     unit=ndslice_wrange_integ.unit, 
+        #                     copy=True)
+
+        ndslice_wrange_integ.uncertainty = uncs
 
     return ndslice_wrange_integ
 
@@ -795,7 +819,7 @@ def sumalongslit_pix(ras_window, spix1=None, spix2=None,
                             unit=ras_window.unit, 
                             copy=True)
 
-    ndslice_sum.uncertainty = uncs
+        ndslice_sum.uncertainty = uncs
 
 
     return ndslice_sum
@@ -864,10 +888,96 @@ def meanalongslit_pix(ras_window, spix1=None, spix2=None,
                             unit=ras_window.unit, 
                             copy=True)
 
-    ndslice_mean.uncertainty = uncs
+        ndslice_mean.uncertainty = uncs
 
 
     return ndslice_mean
+
+####################################################################
+####################################################################
+
+def ratio_basic(quant1, quant2,
+                uncertainties = False,
+                correctunit = True): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    10th May 2024
+   
+    NAME:               ratio_basic
+
+    PURPOSE:            Returns the ratio = quant1 / quant2. The WCS info for
+                        quant1 is carried through to the new array. 
+
+    INPUTS:             quant1 -- A NCUBE object with some array called .data, 
+                                  and associated WCS metadata.
+                        quant2 -- A NCUBE object with some array called .data, 
+                                  and associated WCS metadata. Must be the same 
+                                  dimensions as quant1
+                                               
+    OPTIONAL            
+    INPUTS:             uncertainties -- bool, default = False
+                                         Set to true to propagate the uncertanty,
+                                         in which case both inputs must have an 
+                                         uncertainty object.
+                        correctunit -- bool, default = False
+                                       Set to true to carry the units through properly 
+
+    OUTPUTS:            An NDCUBE object containing the ratio. The WCS coords of 
+                        that object match the input quant1
+                        
+
+    NOTES:              While intended to be general, this might be 
+                        rather specific to certain observing modes/SPICE
+                        fits files.
+
+                        It is rather clunky, and assumes a maximum of 4 
+                        dimnensions in the NDCUBE object (I don't know why
+                        SPICE would have more... easily extendible). I'm sure
+                        there is a cleverer way of doing this, but I was having
+                        trouble setting the NDCUBE.data array simply by saying
+                        NDCUBE.data = X, but e.g. NDCUBE.data[:,:,:] = X works.
+
+    '''
+    ## Copy quant1 to retain the NDCUBE meta data (ie the WCS info )
+    ratio_obj = copy.deepcopy(quant1)
+
+    ndim = ratio_obj.data.ndim 
+
+    if quant1.data.ndim != quant2.data.ndim:
+        raise Exception(">>> INPUT: quant1 and quant2 data arrays must have the same dimensions")
+
+    if ndim == 4:
+        ratio_obj.data[:,:,:,:] = quant1.data/quant2.data
+    elif ndim == 3:
+        ratio_obj.data[:,:,:] = quant1.data/quant2.data
+    elif ndim == 2:
+        ratio_obj.data[:,:] = quant1.data/quant2.data
+    elif ndim == 1:
+        ratio_obj.data[:] = quant1.data/quant2.data
+    else: 
+        raise Exception(">>> Only works with up to 4-D NDCUBE objects")
+
+    if correctunit == True:
+        if quant1.unit == None or quant2.unit == None:
+            raise Exception(">>> You asked to have units but one of the inputs do not have units")
+        ratio_obj/=quant2.unit
+    else:
+        print(">>> NOTE THAT UNITS MAY NOT BE CORRECT!")
+
+    if uncertainties == True:
+        if quant1.uncertainty is None or quant2.uncertainty is None:
+            raise Exception(">>> You asked for uncertainties, but one of your inputs does not have them defined")
+        uncs2_quant1 = np.square(quant1.uncertainty.array/quant1.data)
+        uncs2_quant2 = np.square(quant2.uncertainty.array/quant2.data)
+        uncs_sum = np.sqrt(uncs2_quant1+uncs2_quant2)
+        uncs = spiceL2_Unc(uncs_sum*ratio_obj.data, 
+                            unit=ratio_obj.unit, 
+                            copy=True)
+
+        ratio_obj.uncertainty = uncs
+
+    return ratio_obj
 
 ####################################################################
 ####################################################################
