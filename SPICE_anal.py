@@ -619,6 +619,157 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
 ####################################################################
 ####################################################################
 
+def wintegrate_stare_trapz_interp(ras_window, w1=None, w2=None, wavels=[],
+                                  noconvert=False, nounitchange = False,
+                                  uncertainties = False): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    Sept 2024
+   
+    NAME:               wintegrate_stare_trapz_interp
+
+    PURPOSE:            To integrate over wavelength, using the trapezoidal 
+                        rule. This will be rather clunky, by in effect 
+                        going through the rebin process in order to grab 
+                        the correct WCS slice, but will replace the data array
+                        at the end. This version interpolates to the input 
+                        w1 -> w2 range.
+
+                        By default, it is assumed that the intensity units are
+                        in per W/m^2/sr/nm, and the sum is multiplied by the spectral 
+                        bin size to obtain W/m^2/sr. This can be suppressed by the 
+                        keyword noconvert = True. 
+
+                        This version is for sit-and-stare observations
+
+    INPUTS:             ras_window -- A sunraster SPICE object that is 'window-ed', 
+                                      which is that the specific window extracted
+                                      from the raster object, 
+                                      e.g. window = raster['Ly Beta 1025 - LH']
+
+                                      This should have been 'sliced', such that
+                                      the two dimensions are spatial (pixel lat 
+                                      and long), and the third is spectral, 
+                                      That is, time has been sliced out.
+                                      e.g ndslice = window[0,:,:,:]
+                        
+                                               
+    OPTIONAL            
+    INPUTS:             wavels -- float, or list of floats
+                                  Wavelengths of the observing window in nm. 
+                                  Default is wavels = None, and they are 
+                                  read from the ras_slice object.
+                        w1, w2 -- The wavelengths to integrate over, in nm.
+                                  Default is that w1 = w2 = None, and the range 
+                                  is taken to be the start and end of the wavels
+                                  array.
+                        noconvert -- bool, default = False
+                                     If False then the integrated wavelengths are 
+                                     multiplied by the pixel spacing in nm, since 
+                                     the L2 SPICE data are in W/m^2/sr/nm. If other 
+                                     units, or DN, are used then set to True and
+                                     manually deal with pixel scale outside the 
+                                     function.
+                        nounitchange -- bool, default = False
+                                        If false then the ndslice_wrange_integ.unit 
+                                        are converted due to the integration, with 
+                                        the assumption being that units are 
+                                        W/m^2/sr. 
+                                        If alternate units are required, this can be
+                                        changed after-the-fact
+                        uncertainties -- bool, default = False
+                                         If True then the errors are propegated through 
+                                         the wavelength integration 
+                        
+    OUTPUTS:            An NDCUBE object containing the integrated intensities of the 
+                        data. The WCS coords of that object match the input, and
+                        know that the rebinning has taken place. 
+                        
+
+    NOTES:              While intended to be general, this might be 
+                        rather specific to certain observing modes/SPICE
+                        fits files.
+
+                        You *could* in theory not pass the wavelength array to 
+                        np.trapz, and instead multiply the result by the pixel 
+                        spacing... that doesn't quite give the same result but 
+                        it's pretty darn close. 
+
+                        *** SHOULD DOUBLE CHECK THE ERROR PROP ***
+
+                        
+    '''
+
+    ## The wavelength axis
+    if len(wavels) == 0:
+        wavels = (ras_window.axis_world_coords_values('em.wl')[0]).to(u.nanometer).value
+
+    ## If required, set the wavelength integration limits
+    if w1 == None:
+        w1 = wavels[0].value
+    if w2 == None:
+        w2 = wavels[-1].value
+
+    ## Interpolate to the range w2->w1
+    ninterp = 50
+    wavel_interp = np.linspace(w1, w2, num = ninterp, endpoint=True) 
+
+    ## Number of pixels
+    nw = wavel_interp.shape[0]
+
+    ## Extract a slice that corresponds to the wavelength range, then rebin using 
+    ## numpy's nansum function... this is just to create the wcs object (definitely 
+    ## a better way exists to do this)
+    ndslice_wrange = ras_window[:,:,:,0]
+    ndslice_wrange_integ = ndslice_wrange.rebin((1,ndslice_wrange.data.shape[1],1), 
+                                                operation=np.nansum)
+
+    ## Grab the data array to be integrated by np.trapz
+    data_interp = np.zeros([ndslice_wrange.data.shape[0], 
+                            wavel_interp.shape[0], 
+                            ndslice_wrange.data.shape[2]], dtype = float)
+
+    ## Interpolate the data to the new wavelength array
+    for tind in range(data_interp.shape[0]):
+        for pind in range(data_interp.shape[2]):
+            data_interp[tind,:,pind] = np.interp(wavel_interp, 
+                                                 wavels.value, 
+                                                 ndslice_wrange.data[tind,:,pind])
+
+    ## Integrate over wavelength... assumes intensity in W/m^2/nm!
+    if noconvert == False:
+        data_tmp_integ = np.trapz(data_interp, x = wavel_interp, axis = 1)
+    else:
+        data_tmp_integ = np.trapz(data_interp, axis = 1)
+
+
+    ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+
+    if nounitchange == False:
+        ndslice_wrange_integ*=(1*u.nanometer)
+
+    if uncertainties == True:
+        # dw = (wavels[1]-wavels[0]).value
+        dw = w2-w1
+        # print('dw = ',dw)
+        uncs2_sum = np.zeros_like(ndslice_wrange_integ.data)
+        # uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array/ndslice_wrange.data),axis=1))
+        # uncs = spiceL2_Unc(uncs2_sum*ndslice_wrange_integ.data, 
+        #                     unit=ndslice_wrange_integ.unit, 
+        #                     copy=True)
+        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array),axis=1))*dw
+        uncs = spiceL2_Unc(uncs2_sum, 
+                            unit=ndslice_wrange_integ.unit, 
+                            copy=True)
+
+        ndslice_wrange_integ.uncertainty = uncs
+
+    return ndslice_wrange_integ
+
+####################################################################
+####################################################################
+
 def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
                            noconvert=False, nounitchange = False,
                            uncertainties = False): 
@@ -743,7 +894,7 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
 
     if uncertainties == True:
         dw = (wavels[1]-wavels[0]).value
-        print('dw = ',dw)
+        # print('dw = ',dw)
         uncs2_sum = np.zeros_like(ndslice_wrange_integ.data)
         uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array/ndslice_wrange.data),axis=1))
         uncs = spiceL2_Unc(uncs2_sum*ndslice_wrange_integ.data, 
@@ -993,7 +1144,7 @@ def uncertaintyL2(ras_window, verbose = False):
     PURPOSE:            Calculates the error on L2 SPICE data, following
                         Huang,Z.,etal. A&A 673, A82 (2023).
 
-                        This is largely just a wrapper for sospice.spice_error()
+                        This is just a wrapper for sospice.spice_error()
                         but places that output into the uncertainty field
                         of a sunraster object, keeping all the WCS info together.
 
