@@ -19,8 +19,22 @@
 ## can be useful for specifics whereas those libraries/tools can be 
 ## more general.
 ##
-## .... note that the error propegation needs work and is just me 
-## playing around. It is NOT ready for use. 
+## .... note that all the the uncertainty parts need work and is just me 
+## playing around. It is NOT ready for use generally. The trapz codes for 
+## sit-and-stare are OK but should check the others. 
+##
+## .... note that while i've tried to be general there are times when 
+## assumptions have been hardcoded. Some of the codes are intended for 
+## use with individual sit-and-stare, or rastered fits files, and some 
+## are used with collated datasets. I'll try to improve the docstrings
+## but make sure you check what each code is doing before using it.
+## For example, the slicing options are not as general as they could be
+## when integrating... 
+##         - assumes that dim = 3 means you have sliced out 'raster' #
+##         - assumes that dim = 2 means you have sliced out 'raster' #
+##           and space
+##         - assumes that dim = 1 means you have sliced out everything 
+##           apart from wavelength.
 ##
 ####################################################################
 ####################################################################
@@ -117,6 +131,40 @@ def grab_wavel(raster, winid=None, verbose = True, nounit = False):
 
 ####################################################################
 ####################################################################
+ 
+def grab_wavel_awc(raster, winid=None, verbose = True): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    1st Oct 2024
+   
+    NAME:               grab_wavel_awc
+
+    PURPOSE:            To extract the wavelength values from a SPICE L2
+                        observation as axis world coords.
+
+    INPUTS:             raster -- A sunraster SPICE object
+                        winid -- A string noting which wavelength window 
+                                 to use. Default is to use the first index.  
+                        
+    OPTIONAL
+    INPUTS:             verbose -- Prints the windows to screen
+
+    OUTPUTS:            The cell-centered wavelengths 
+
+    NOTES:              
+    '''
+    if winid == None:
+        keys = print_windows(raster,verbose=False)
+        winid = keys[0]
+        print('No window ID set, using',keys[0])
+    window = raster[winid]
+    if verbose == True:
+        print((window.axis_world_coords('em.wl')[0]))
+    return (window.axis_world_coords('em.wl')[0])
+
+####################################################################
+####################################################################
     
 def grab_hplat(raster, winid=None, verbose = True, nounit = False): 
     '''
@@ -151,13 +199,48 @@ def grab_hplat(raster, winid=None, verbose = True, nounit = False):
     if verbose == True:
         print((window.axis_world_coords_values('custom:pos.helioprojective.lat')[0]).to(u.arcsec))
     if nounit == True:
-        return (window.aaxis_world_coords_values('custom:pos.helioprojective.lat')[0]).to(u.arcsec).value
+        return (window.axis_world_coords_values('custom:pos.helioprojective.lat')[0]).to(u.arcsec).value
     else:
         return (window.axis_world_coords_values('custom:pos.helioprojective.lat')[0]).to(u.arcsec)
 
 ####################################################################
 ####################################################################
-    
+
+def grab_hplat_awc(raster, winid=None, verbose = True): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    1st Oct 2024
+   
+    NAME:               grab_hplat_awc
+
+    PURPOSE:            To extract the HP latitude values for each pixel
+                        from a SPICE L2 observation, as axis world coords.
+
+    INPUTS:             raster -- A sunraster SPICE object
+                        winid -- A string noting which wavelength window 
+                                 to use. Default is to use the first index.  
+                        
+    OPTIONAL
+    INPUTS:             verbose -- Prints the windows to screen
+
+    OUTPUTS:            The HP latitude . 
+
+    NOTES:              
+ 
+    '''
+    if winid == None:
+        keys = print_windows(raster,verbose=False)
+        winid = keys[0]
+        print('No window ID set, using',keys[0])
+    window = raster[winid]
+    if verbose == True:
+        print(window.axis_world_coords('custom:pos.helioprojective.lat')[0])
+    return window.axis_world_coords('custom:pos.helioprojective.lat')[0]
+
+####################################################################
+####################################################################
+
 def grab_hplon(raster, winid=None, verbose = True, nounit = False): 
     '''
     Graham Kerr
@@ -191,9 +274,44 @@ def grab_hplon(raster, winid=None, verbose = True, nounit = False):
     if verbose == True:
         print((window.axis_world_coords_values('custom:pos.helioprojective.lon')[0]).to(u.arcsec))
     if nounit == True:
-        return (window.aaxis_world_coords_values('custom:pos.helioprojective.lon')[0]).to(u.arcsec).value
+        return (window.axis_world_coords_values('custom:pos.helioprojective.lon')[0]).to(u.arcsec).value
     else:
         return (window.axis_world_coords_values('custom:pos.helioprojective.lon')[0]).to(u.arcsec)
+
+####################################################################
+####################################################################
+    
+def grab_hplon_awc(raster, winid=None, verbose = True): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    1st Oct 2024
+   
+    NAME:               grab_hplat_awc
+
+    PURPOSE:            To extract the HP longitude values for each pixel
+                        from a SPICE L2 observation, as axis world coords.
+
+    INPUTS:             raster -- A sunraster SPICE object
+                        winid -- A string noting which wavelength window 
+                                 to use. Default is to use the first index.  
+                        
+    OPTIONAL
+    INPUTS:             verbose -- Prints the windows to screen
+
+    OUTPUTS:            The HP longitude of each pixel. 
+
+    NOTES:              
+ 
+    '''
+    if winid == None:
+        keys = print_windows(raster,verbose=False)
+        winid = keys[0]
+        print('No window ID set, using',keys[0])
+    window = raster[winid]
+    if verbose == True:
+        print((window.axis_world_coords('custom:pos.helioprojective.lon')[0]))
+    return (window.axis_world_coords('custom:pos.helioprojective.lon')[0])
 
 ####################################################################
 ####################################################################
@@ -247,9 +365,50 @@ def grab_time(raster, winid=None, verbose = True, nounit = False):
 
 ####################################################################
 ####################################################################
-    
-def wavel2pix(ras_window, wavels, frame=None, Tx=0, Ty=0, 
-              verbose=False, outputall=False): 
+
+def grab_time_awc(raster, winid=None, verbose = True): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    1st Oct 2024
+   
+    NAME:               grab_time_awc
+
+    PURPOSE:            To extract the time axis world corods from a SPICE L2
+                        observion, using the WCS header info.
+
+    INPUTS:             raster -- A sunraster SPICE object
+                        winid -- A string noting which wavelength window 
+                                 to use. Default is to use the first index.  
+                        
+    OPTIONAL
+    INPUTS:             verbose -- Prints the windows to screen
+
+    OUTPUTS:            The cell-centered time since the start of the raster, 
+                        as astropy time object 
+
+    NOTES:              
+ 
+    '''
+    if winid == None:
+        keys = print_windows(raster,verbose=False)
+        winid = keys[0]
+        print('No window ID set, using',keys[0])
+    window = raster[winid]
+
+    if window.meta.shape[-1] > 1:
+        if verbose == True:
+            print((window.axis_world_coords('time')[0][0]))
+        return (window.axis_world_coords('time')[0][0]) 
+    else: 
+        if verbose == True:
+            print((window.axis_world_coords('time')[0]))
+        return (window.axis_world_coords('time')[0]) 
+
+####################################################################
+####################################################################
+
+def wavel2pix(ras_window, wavels): 
     '''
     Graham Kerr
     NASA/GSFC & CUA
@@ -265,17 +424,16 @@ def wavel2pix(ras_window, wavels, frame=None, Tx=0, Ty=0,
                                       e.g. window = raster['Ly Beta 1025 - LH']
 
                                       This should have been 'sliced', such that
-                                      the two dimensions are spatial (pixel lat 
-                                      and long), and the third is spectral, 
-                                      That is, time has been sliced out.
-                                      e.g ndslice = window[0,:,:,:]
+                                      the only dimension is spectral (assuming that
+                                      wavelength array is fixed with space/time per
+                                      SPICE fits file)
+                                      
                         wavels -- float, or list of floats, representing 
                                   requested wavelengths in nm
                         
-    OPTIONAL            Tx, Ty -- the longitude and latitude in arcsec
-    INPUTS:             verbose -- Print some steps
-                        outputall -- Return spatial pixels also 
-
+    OPTIONAL            
+    INPUTS:             
+                         
 
     OUTPUTS:            Flt array containing the pixels corresponding  
                         to the input wavelengths
@@ -285,32 +443,15 @@ def wavel2pix(ras_window, wavels, frame=None, Tx=0, Ty=0,
                         rather specific to certain observing modes/SPICE
                         fits files.
 
-                        Note that dummy vars are used for the latitude 
-                        and longitude, unless speficied otherwhise. 
-                        It Tx and Ty are input also, and the outputall 
-                        keyword switched on then the function instead 
-                        returns [lon, lat, wavelength] pixels
+                         Updated 2nd Oct 2024
+                                 - simplified by removing dummy variables
+                                 since wavelength independent of Lat & Long
     '''
 
-    ## Set the celestial frame, to be used when creating the SkyCoords
-    if frame == None:
-        frame = ras_window.celestial
-        # frame=wcs_to_celestial_frame(window.wcs))
-
     ## Extract the various pixels
-    pix = ras_window.wcs.world_to_pixel(SkyCoord(Tx=Tx*u.arcsec, 
-                                                Ty=Ty*u.arcsec, 
-                                                frame=frame),
-                          wavels*u.nanometer)
+    pix = ras_window.wcs.world_to_pixel(wavels*u.nanometer)
 
-    if outputall == True:
-        if verbose==True:
-            print('>>> Outputting spatial (dim 0 & 1), and spectral (dim 2) pixel #s')
-        return pix
-    else:
-        if verbose==True:
-            print('>>> Outputting only spectral pixel #s')
-        return pix[-1]
+    return pix
 
 ####################################################################
 ####################################################################
@@ -402,7 +543,7 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
    
     NAME:               wintegrate_rebin
 
-    PURPOSE:            To integrate over wavelength, using ndslice's in-built
+    PURPOSE:            To integrate over wavelength, using NDCube's in-built
                         rebing method, given which pixels to integrate over.
 
                         By default, it is assumed that the intensity units are
@@ -475,7 +616,7 @@ def wintegrate_rebin(ras_window, w1=None, w2=None, wavels=[],
     ## Extract a slice so that we can grab wavelength ranges in pixels
     ind = 0
     ndslice = ras_window[0,:,:,ind]
-    wlimpix = wavel2pix(ndslice, [w1,w2], outputall=False, verbose=False)
+    wlimpix = wavel2pix(ndslice, [w1,w2])
     wind1 = int(np.round(wlimpix)[0])
     wind2 = int(np.round(wlimpix)[1])
 
@@ -587,7 +728,7 @@ def wintegrate_trapz(ras_window, w1=None, w2=None, wavels=[],
     ## Extract a slice so that we can grab wavelength ranges in pixels
     ind = 0
     ndslice = ras_window[0,:,:,ind]
-    wlimpix = wavel2pix(ndslice, [w1,w2], outputall=False, verbose=False)
+    wlimpix = wavel2pix(ndslice, [w1,w2])
     wind1 = int(np.round(wlimpix)[0])
     wind2 = int(np.round(wlimpix)[1])
 
@@ -721,21 +862,53 @@ def wintegrate_stare_trapz_interp(ras_window, w1=None, w2=None, wavels=[],
     ## Extract a slice that corresponds to the wavelength range, then rebin using 
     ## numpy's nansum function... this is just to create the wcs object (definitely 
     ## a better way exists to do this)
-    ndslice_wrange = ras_window[:,:,:,0]
-    ndslice_wrange_integ = ndslice_wrange.rebin((1,ndslice_wrange.data.shape[1],1), 
-                                                operation=np.nansum)
+    if len(ras_window.data.shape) == 4:
+        wlimpix = wavel2pix(ras_window[0,:,0,0], [w1,w2])
+        wind1 = int(np.round(wlimpix)[0])
+        wind2 = int(np.round(wlimpix)[1])
+        ndslice_wrange = ras_window[:,wind1:wind2+1,:,0]
+        ndslice = ras_window[:,:,:,0]
+        ndslice_wrange_integ = ndslice.rebin((1,ndslice.data.shape[1],1), 
+                                                     operation=np.nansum)
+    elif len(ras_window.data.shape) == 3:
+        wlimpix = wavel2pix(ras_window[0,:,0], [w1,w2])
+        wind1 = int(np.round(wlimpix)[0])
+        wind2 = int(np.round(wlimpix)[1])
+        ndslice_wrange = ras_window[:,wind1:wind2+1,:]
+        ndslice = ras_window[:,:,:]
+        ndslice_wrange_integ = ndslice.rebin((1,ndslice.data.shape[1],1), 
+                                                     operation=np.nansum)        
+    elif len(ras_window.data.shape) == 2:
+        wlimpix = wavel2pix(ras_window[0,:], [w1,w2])
+        wind1 = int(np.round(wlimpix)[0])
+        wind2 = int(np.round(wlimpix)[1])
+        ndslice_wrange = ras_window[:,wind1:wind2+1]
+        ndslice = ras_window[:,:]
+        ndslice_wrange_integ = ndslice.rebin((1,ndslice.data.shape[1]), 
+                                                     operation=np.nansum)
+        
+    elif len(ras_window.data.shape) == 1:
+        wlimpix = wavel2pix(ras_window, [w1,w2])
+        wind1 = int(np.round(wlimpix)[0])
+        wind2 = int(np.round(wlimpix)[1])
+        ndslice_wrange = ras_window[wind1:wind2+1]
+        ndslice = ras_window
+        ndslice_wrange_integ = ndslice.rebin((ndslice.data.shape[1]), 
+                                                     operation=np.nansum)   
+        
+
 
     ## Grab the data array to be integrated by np.trapz
-    data_interp = np.zeros([ndslice_wrange.data.shape[0], 
+    data_interp = np.zeros([ndslice.data.shape[0], 
                             wavel_interp.shape[0], 
-                            ndslice_wrange.data.shape[2]], dtype = float)
+                            ndslice.data.shape[2]], dtype = float)
 
     ## Interpolate the data to the new wavelength array
     for tind in range(data_interp.shape[0]):
         for pind in range(data_interp.shape[2]):
             data_interp[tind,:,pind] = np.interp(wavel_interp, 
                                                  wavels.value, 
-                                                 ndslice_wrange.data[tind,:,pind])
+                                                 ndslice.data[tind,:,pind])
 
     ## Integrate over wavelength... assumes intensity in W/m^2/nm!
     if noconvert == False:
@@ -743,26 +916,31 @@ def wintegrate_stare_trapz_interp(ras_window, w1=None, w2=None, wavels=[],
     else:
         data_tmp_integ = np.trapz(data_interp, axis = 1)
 
+    if len(ras_window.data.shape) == 4:
+        ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+    elif len(ras_window.data.shape) == 3:
+        ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+    elif len(ras_window.data.shape) == 2:
+        ndslice_wrange_integ.data[:,0] = data_tmp_integ
+    elif len(ras_window.data.shape) == 1:
+        ndslice_wrange_integ.data = data_tmp_integ
 
-    ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
 
     if nounitchange == False:
         ndslice_wrange_integ*=(1*u.nanometer)
 
+    ### OK, so uncertainties are on the *original* data, not interpolated
+    ### which should be double checked. For now, just sum up the errors
+    ### on the original input data and pass that as the uncertainty on 
+    ### the wavelength-intergrated intensity.
     if uncertainties == True:
-        # dw = (wavels[1]-wavels[0]).value
-        dw = w2-w1
-        # print('dw = ',dw)
+        dw = (wavels[1]-wavels[0]).value
         uncs2_sum = np.zeros_like(ndslice_wrange_integ.data)
-        # uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array/ndslice_wrange.data),axis=1))
-        # uncs = spiceL2_Unc(uncs2_sum*ndslice_wrange_integ.data, 
-        #                     unit=ndslice_wrange_integ.unit, 
-        #                     copy=True)
-        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array),axis=1))*dw
+        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array*dw),axis=1))
         uncs = spiceL2_Unc(uncs2_sum, 
                             unit=ndslice_wrange_integ.unit, 
                             copy=True)
-
+       
         ndslice_wrange_integ.uncertainty = uncs
 
     return ndslice_wrange_integ
@@ -860,11 +1038,18 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
     if w2 == None:
         w2 = wavels[-1].value
 
-
+    
     ## Extract a slice so that we can grab wavelength ranges in pixels
     ind = 0
-    ndslice = ras_window[ind,:,:,0]
-    wlimpix = wavel2pix(ndslice, [w1,w2], outputall=False, verbose=False)
+    if len(ras_window.data.shape) == 4:
+        ndslice = ras_window[ind,:,ind,ind]
+    elif len(ras_window.data.shape) == 3:
+        ndslice = ras_window[ind,:,ind]
+    elif len(ras_window.data.shape) == 2:
+        ndslice = ras_window[ind,:]
+    elif len(ras_window.data.shape) == 1:
+        ndslice = ras_window
+    wlimpix = wavel2pix(ndslice, [w1,w2])
     wind1 = int(np.round(wlimpix)[0])
     wind2 = int(np.round(wlimpix)[1])
 
@@ -874,9 +1059,18 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
     ## Extract a slice that corresponds to the wavelength range, then rebin using 
     ## numpy's nansum function... this is just to create the wcs object (definitely 
     ## a better way exists to do this)
-    ndslice_wrange = ras_window[:,wind1:wind2+1,:,0]
-    ndslice_wrange_integ = ndslice_wrange.rebin((1,nw,1), operation=np.nansum)
-
+    if len(ras_window.data.shape) == 4:
+        ndslice_wrange = ras_window[:,wind1:wind2+1,:,0]
+        ndslice_wrange_integ = ndslice_wrange.rebin((1,nw,1), operation=np.nansum)
+    elif len(ras_window.data.shape) == 3:
+        ndslice_wrange = ras_window[:,wind1:wind2+1,:]
+        ndslice_wrange_integ = ndslice_wrange.rebin((1,nw,1), operation=np.nansum)
+    elif len(ras_window.data.shape) == 2:
+        ndslice_wrange = ras_window[:,wind1:wind2+1]
+        ndslice_wrange_integ = ndslice_wrange.rebin((1,nw), operation=np.nansum)
+    elif len(ras_window.data.shape) == 1:
+        ndslice_wrange = ras_window[wind1:wind2+1]
+        ndslice_wrange_integ = ndslice_wrange.rebin((nw), operation=np.nansum)
 
     ## Grab the data array to be integrated by np.trapz
     data_tmp = ndslice_wrange.data
@@ -886,7 +1080,14 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
     else:
         data_tmp_integ = np.trapz(data_tmp, axis = 1)
 
-    ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+    if len(ras_window.data.shape) == 4:
+        ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+    elif len(ras_window.data.shape) == 3:
+        ndslice_wrange_integ.data[:,0,:] = data_tmp_integ
+    elif len(ras_window.data.shape) == 2:
+        ndslice_wrange_integ.data[:,0] = data_tmp_integ
+    elif len(ras_window.data.shape) == 1:
+        ndslice_wrange_integ.data = data_tmp_integ
 
     if nounitchange == False:
         ndslice_wrange_integ*=(1*u.nanometer)
@@ -894,17 +1095,12 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
 
     if uncertainties == True:
         dw = (wavels[1]-wavels[0]).value
-        # print('dw = ',dw)
         uncs2_sum = np.zeros_like(ndslice_wrange_integ.data)
-        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array/ndslice_wrange.data),axis=1))
-        uncs = spiceL2_Unc(uncs2_sum*ndslice_wrange_integ.data, 
+        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array*dw),axis=1))
+        uncs = spiceL2_Unc(uncs2_sum, 
                             unit=ndslice_wrange_integ.unit, 
                             copy=True)
-        # uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice_wrange.uncertainty.array*dw),axis=1))
-        # uncs = spiceL2_Unc(uncs2_sum, 
-        #                     unit=ndslice_wrange_integ.unit, 
-        #                     copy=True)
-
+        
         ndslice_wrange_integ.uncertainty = uncs
 
     return ndslice_wrange_integ
@@ -913,7 +1109,8 @@ def wintegrate_stare_trapz(ras_window, w1=None, w2=None, wavels=[],
 ####################################################################
 
 def sumalongslit_pix(ras_window, spix1=None, spix2=None, 
-                     uncertainties=True,
+                     uncertainties=True, timesum = True,
+                     tpix1=None, tpix2=None
                     ): 
     '''
     Graham Kerr
@@ -930,13 +1127,21 @@ def sumalongslit_pix(ras_window, spix1=None, spix2=None,
                                       e.g. window = raster['Ly Beta 1025 - LH']
                                                     
     OPTIONAL            
-    INPUTS:             ypix1,ypix2 -- The slit pixels to integrate over, in nm.
+    INPUTS:             spix1,spix2 -- ints
+                                       The slit pixels to integrate over.
                                        Default is that spix1 = spix2 = None, and 
                                        the values are set to the first and last 
                                        pixels,
                         uncertainties -- bool, default = True
                                          Flag to propegate uncertainties and populate
                                          that part of the ndcube object. 
+                        timesum -- bool, default = False
+                                   Flag to sum in time also. 
+                        tpix1,tpix2 -- ints
+                                       The time pixels to integrate over.
+                                       Default is that tpix1 = tpix2 = None, and 
+                                       the values are set to the first and last 
+                                       pixels [needs the timesum flag to True]
                         
     OUTPUTS:            An NDCUBE object containing the summed intensities of the 
                         data. The WCS coords of that object match the input, and
@@ -960,18 +1165,155 @@ def sumalongslit_pix(ras_window, spix1=None, spix2=None,
     if spix2 == None:
         spix2 = ras_window.data.shape[-2]
 
-    ndslice = ras_window[0,:,spix1:spix2+1,:]
-    ndslice_sum = ndslice.rebin((1,ndslice.data.shape[1],1), operation=np.nansum)
+    ndslice = ras_window[:,:,spix1:spix2+1,:]
+    ndslice_sum = ndslice.rebin((1,1,ndslice.data.shape[2],1), operation=np.nansum)
+
 
     if uncertainties == True:
         uncs2_sum = np.zeros_like(ndslice_sum.data)
-        uncs2_sum[:,0,:] = np.sqrt(np.nansum(np.square(ndslice.uncertainty.array),axis=1))
+        uncs2_sum[:,:,0,:] = np.sqrt(np.nansum(np.square(ndslice.uncertainty.array),axis=2))
         uncs = spiceL2_Unc(uncs2_sum, 
                             unit=ras_window.unit, 
                             copy=True)
 
         ndslice_sum.uncertainty = uncs
 
+    if timesum == True:
+        if tpix1 == None:
+            tpix1 = 0
+        if tpix2 == None:
+            tpix2 = ras_window.data.shape[0]
+            
+        ndslice_tmp = ndslice_sum[tpix1:tpix2+1,:,:,:]
+        ndslice_timesum = ndslice_tmp.rebin((ndslice_tmp.data.shape[0],1,1,1), operation=np.nansum)
+
+        if uncertainties == True:
+            uncs2_timesum = np.zeros_like(ndslice_timesum.data)
+            uncs2_timesum[0,:,:,:] = np.sqrt(np.nansum(np.square(ndslice_tmp.uncertainty.array),axis=0))
+            uncs_timesum = spiceL2_Unc(uncs2_timesum, 
+                                        unit=ras_window.unit, 
+                                        copy=True)
+
+            ndslice_timesum.uncertainty = uncs_timesum
+
+        ndslice_sum = ndslice_timesum
+
+    return ndslice_sum
+
+####################################################################
+####################################################################
+
+
+def sumalongslit_pix_stare_collate(ras_window, spix1=None, spix2=None, 
+                                   uncertainties=True, timesum = False,
+                                   tpix1=None, tpix2=None
+                                  ): 
+    '''
+    Graham Kerr
+    NASA/GSFC & CUA
+    3rd Oct 2024
+   
+    NAME:               sumalongslit_pix_stare_collate
+
+    PURPOSE:            Sum intensity along the slit, given pixel numbers, for a 
+                        sit-and-stare SPICE observation that has been collated. 
+                        The way I collate means that we normally have
+                        [time (exposure), wavelength, exposure #, raster # (0)].
+
+    INPUTS:             ras_window -- A sunraster SPICE object that is 'window-ed', 
+                                      which is that the specific window extracted
+                                      from the raster object, 
+                                      e.g. window = raster['Ly Beta 1025 - LH']
+                                                    
+    OPTIONAL            
+    INPUTS:             spix1,spix2 -- ints
+                                       The slit pixels to integrate over.
+                                       Default is that spix1 = spix2 = None, and 
+                                       the values are set to the first and last 
+                                       pixels.
+                        uncertainties -- bool, default = True
+                                         Flag to propegate uncertainties and populate
+                                         that part of the ndcube object. 
+                        timesum -- bool, default = False
+                                   Flag to sum in time also.
+
+                        tpix1,tpix2 -- ints
+                                       The time pixels to integrate over.
+                                       Default is that tpix1 = tpix2 = None, and 
+                                       the values are set to the first and last 
+                                       pixels [needs the timesum flag to True]
+
+    OUTPUTS:            An NDCUBE object containing the summed intensities of the 
+                        data. The WCS coords of that object match the input, and
+                        know that the rebinning has taken place. 
+                        
+
+    NOTES:              While intended to be general, this might be 
+                        rather specific to certain observing modes/SPICE
+                        fits files.
+
+                        Uncertainties are the root of the sum of the squares of the
+                        uncertainty on each pixel.
+
+                        ***UNCERTAINTIES NEED ATTENTION*** 
+
+                        Note that the units might need some attention... 
+
+                        
+    '''
+
+    if spix1 == None:
+        spix1 = 0
+    if spix2 == None:
+        spix2 = ras_window.data.shape[0]
+
+
+
+    if len(ras_window.data.shape) == 4:
+        ndslice = ras_window[spix1:spix2+1,:,:,:]
+        ndslice_sum = ndslice.rebin((ndslice.data.shape[0],1,1,1), operation=np.nansum)
+    elif len(ras_window.data.shape) == 3:
+        ndslice = ras_window[spix1:spix2+1,:,:]
+        ndslice_sum = ndslice.rebin((ndslice.data.shape[0],1,1), operation=np.nansum)
+    elif len(ras_window.data.shape) == 2:
+        ndslice = ras_window[spix1:spix2+1,:]
+        ndslice_sum = ndslice.rebin((ndslice.data.shape[0],1), operation=np.nansum)
+    elif len(ras_window.data.shape) == 1:
+        ndslice = ras_window[spix1:spix2+1]
+        ndslice_sum = ndslice.rebin((ndslice.data.shape[0]), operation=np.nansum)
+
+    if uncertainties == True:
+        uncs2_sum = np.zeros_like(ndslice_sum.data)
+        uncs2_sum[:,:,0,:] = np.sqrt(np.nansum(np.square(ndslice.uncertainty.array),axis=2))
+        uncs = spiceL2_Unc(uncs2_sum, 
+                            unit=ras_window.unit, 
+                            copy=True)
+
+        ndslice_sum.uncertainty = uncs
+
+    if timesum == True:
+        if tpix1 == None:
+            tpix1 = 0
+        if tpix2 == None:
+            tpix2 = ras_window.data.shape[-1]
+
+        if len(ras_window.data.shape) == 4:
+            ndslice_tmp = ndslice_sum[:,:,tpix1:tpix2+1,:]
+            ndslice_timesum = ndslice_tmp.rebin((1,1,ndslice_tmp.data.shape[0],1), operation=np.nansum)
+        elif len(ras_window.data.shape) == 3:
+            ndslice_tmp = ndslice_sum[:,:,tpix1:tpix2+1]
+            ndslice_timesum = ndslice_tmp.rebin((1,1,ndslice_tmp.data.shape[0]), operation=np.nansum)
+        
+        if uncertainties == True:
+            uncs2_timesum = np.zeros_like(ndslice_timesum.data)
+            uncs2_timesum[0,:,:,:] = np.sqrt(np.nansum(np.square(ndslice_tmp.uncertainty.array),axis=0))
+            uncs_timesum = spiceL2_Unc(uncs2_timesum, 
+                                        unit=ras_window.unit, 
+                                        copy=True)
+
+            ndslice_timesum.uncertainty = uncs_timesum
+
+        ndslice_sum = ndslice_timesum
 
     return ndslice_sum
 
@@ -997,7 +1339,7 @@ def meanalongslit_pix(ras_window, spix1=None, spix2=None,
                                       e.g. window = raster['Ly Beta 1025 - LH']
                                                     
     OPTIONAL            
-    INPUTS:             ypix1,ypix2 -- The slit pixels to integrate over, in nm.
+    INPUTS:             spix1,spix2 -- The slit pixels to integrate over.
                                        Default is that spix1 = spix2 = None, and 
                                        the values are set to the first and last 
                                        pixels,
